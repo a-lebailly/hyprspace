@@ -8,8 +8,9 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, List, ListItem, ListState},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame, Terminal,
 };
 
@@ -68,6 +69,18 @@ impl App {
 fn ui(f: &mut Frame, app: &App) {
     let area = f.area();
 
+    // Split screen: main list + footer
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Min(3),   // main area
+                Constraint::Length(2), // footer
+            ]
+            .as_ref(),
+        )
+        .split(area);
+
     let title = format!(
         "Hyprspace • {} configuration(s) found",
         app.workspaces.len()
@@ -99,7 +112,7 @@ fn ui(f: &mut Frame, app: &App) {
         })
         .collect();
 
-    let create_label = "➕ Create new workspace script…";
+    let create_label = "Create new workspace script…";
     items.push(ListItem::new(create_label));
 
     let list = List::new(items)
@@ -116,7 +129,15 @@ fn ui(f: &mut Frame, app: &App) {
         state.select(Some(app.selected));
     }
 
-    f.render_stateful_widget(list, area, &mut state);
+    // Render main list in the upper chunk
+    f.render_stateful_widget(list, chunks[0], &mut state);
+
+    // Footer with shortcuts
+    let footer_text = "↑/↓ or j/k: navigate  • Enter: launch  • q or Esc: quit";
+    let footer = Paragraph::new(footer_text)
+        .style(Style::default().fg(Color::DarkGray));
+
+    f.render_widget(footer, chunks[1]);
 }
 
 /// Run the TUI and return the selected action (launch or create).

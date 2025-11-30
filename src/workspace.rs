@@ -113,39 +113,74 @@ pub fn list_workspaces(dir: &Path) -> io::Result<Vec<WorkspaceEntry>> {
     Ok(entries)
 }
 
-/// Create a new workspace script interactively (in normal terminal mode).
-pub fn create_new_script(dir: &Path) -> io::Result<()> {
-    println!(
-        "Creating a new workspace script in {}",
-        dir.to_string_lossy()
-    );
+// Small helpers for a nicer interactive flow
 
-    let mut input = String::new();
+fn clear_screen() {
+    print!("\x1b[2J\x1b[H");
+    let _ = io::stdout().flush();
+}
 
-    // 1) First question: workspace number
-    print!("Enter workspace number (e.g. 1, 2, 3): ");
+fn prompt(label: &str) -> io::Result<String> {
+    print!("{label}");
     io::stdout().flush()?;
-    input.clear();
-    io::stdin().read_line(&mut input)?;
-    let workspace_num: u32 = match input.trim().parse() {
-        Ok(n) if n > 0 => n,
-        _ => {
-            println!("Invalid workspace number, aborting.");
-            return Ok(());
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+    Ok(buf.trim().to_string())
+}
+
+fn prompt_non_empty(label: &str) -> io::Result<String> {
+    loop {
+        let value = prompt(label)?;
+        if !value.is_empty() {
+            return Ok(value);
         }
-    };
+        println!("  -> Value cannot be empty, try again.");
+    }
+}
 
-    // 2) Second question: script short name
-    print!("Enter script short name (e.g. 'backend', 'music', 'dashboard'): ");
-    io::stdout().flush()?;
-    input.clear();
-    io::stdin().read_line(&mut input)?;
-    let short_name = input.trim();
-    if short_name.is_empty() {
-        println!("Empty script name, aborting.");
-        return Ok(());
+fn prompt_yes_no(label: &str, default_no: bool) -> io::Result<bool> {
+    let suffix = if default_no { " [y/N]: " } else { " [Y/n]: " };
+    let full = format!("{label}{suffix}");
+    let answer = prompt(&full)?.to_lowercase();
+
+    if answer.is_empty() {
+        return Ok(!default_no);
     }
 
+    Ok(matches!(answer.as_str(), "y" | "yes"))
+}
+
+/// Create a new workspace script interactively (in normal terminal mode).
+pub fn create_new_script(dir: &Path) -> io::Result<()> {
+    clear_screen();
+
+    // Some simple styling
+    const BOLD: &str = "\x1b[1m";
+    const CYAN: &str = "\x1b[36m";
+    const RESET: &str = "\x1b[0m";
+
+    println!(
+        "{BOLD}{CYAN}Hyprspace · New workspace script{RESET}\n",
+    );
+    println!("Destination directory: {}", dir.to_string_lossy());
+    println!("Follow the steps to configure your workspace layout.\n");
+
+    // 1) Workspace number
+    println!("{BOLD}Step 1/3 · Workspace target{RESET}");
+    let workspace_num: u32 = loop {
+        let value = prompt("Enter workspace number (e.g. 1, 2, 3): ")?;
+        match value.trim().parse::<u32>() {
+            Ok(n) if n > 0 => break n,
+            _ => {
+                println!("Invalid workspace number, please enter a positive integer.");
+            }
+        }
+    };
+    println!("Will dispatch to workspace {workspace_num}\n");
+
+    // 2) Script short name
+    println!("{BOLD}Step 2/3 · Script identity{RESET}");
+    let short_name = prompt_non_empty("Enter script short name (e.g. 'backend', 'music', 'dashboard'): ")?;
     let file_name = format!("workspace-{}.sh", short_name);
     let mut path = dir.to_path_buf();
     path.push(&file_name);
@@ -158,7 +193,14 @@ pub fn create_new_script(dir: &Path) -> io::Result<()> {
         return Ok(());
     }
 
+    println!("Script file will be: {}", path.to_string_lossy());
+    println!();
+
     // 3) Build script content
+    println!("{BOLD}Step 3/3 · Windows layout{RESET}");
+    println!("You can now add one or more windows using rule_exec.");
+    println!("For each window, you will choose size, position and command.\n");
+
     let mut content = String::new();
 
     // Header and workspace dispatch
@@ -176,69 +218,33 @@ pub fn create_new_script(dir: &Path) -> io::Result<()> {
 "#,
     );
 
-    // 4) Add one or more rule_exec blocks
+    let mut window_index = 1usize;
+
+    // Add one or more rule_exec blocks
     loop {
-        input.clear();
-        print!("Add a window rule_exec? [y/N]: ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        let answer = input.trim().to_lowercase();
-        if answer != "y" && answer != "yes" {
+        let add_window = prompt_yes_no("Add a window rule_exec?", true)?;
+        if !add_window {
             break;
         }
 
-        // Size: width / height
-        input.clear();
-        print!("  • width (e.g. 10%): ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        let width = input.trim().to_string();
-        if width.is_empty() {
-            println!("    Empty width, skipping this window.");
-            continue;
-        }
+        println!();
+        println!(
+            "{BOLD}Window #{idx}{RESET} – layout & command",
+            idx = window_index
+        );
 
-        input.clear();
-        print!("  • height (e.g. 15%): ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        let height = input.trim().to_string();
-        if height.is_empty() {
-            println!("    Empty height, skipping this window.");
-            continue;
-        }
+        // Size: width / height
+        let width = prompt_non_empty("  • width  (e.g. 10%): ")?;
+        let height = prompt_non_empty("  • height (e.g. 15%): ")?;
 
         // Position: x / y
-        input.clear();
-        print!("  • position X (e.g. 1%): ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        let pos_x = input.trim().to_string();
-        if pos_x.is_empty() {
-            println!("    Empty X position, skipping this window.");
-            continue;
-        }
-
-        input.clear();
-        print!("  • position Y (e.g. 8%): ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        let pos_y = input.trim().to_string();
-        if pos_y.is_empty() {
-            println!("    Empty Y position, skipping this window.");
-            continue;
-        }
+        let pos_x = prompt_non_empty("  • position X (e.g. 1%): ")?;
+        let pos_y = prompt_non_empty("  • position Y (e.g. 8%): ")?;
 
         // Command to execute
-        input.clear();
-        print!("  • command to execute (e.g. kitty --hold zsh -c \"clock\"): ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut input)?;
-        let command = input.trim().to_string();
-        if command.is_empty() {
-            println!("    Empty command, skipping this window.");
-            continue;
-        }
+        let command = prompt_non_empty(
+            "command (e.g. kitty --hold zsh -c \"cava\" or firefox --new-window github.com): ",
+        )?;
 
         // Append the rule_exec block
         content.push_str(&format!(
@@ -250,6 +256,23 @@ pub fn create_new_script(dir: &Path) -> io::Result<()> {
             y = pos_y,
             cmd = command
         ));
+
+        println!("Window #{idx} added.", idx = window_index);
+        window_index += 1;
+    }
+
+    if window_index == 1 {
+        println!("\nNo windows were added. The script will only switch workspace.");
+    }
+
+    println!("\n{BOLD}Preview of the generated script:{RESET}\n");
+    println!("----- {} -----", file_name);
+    println!("{content}");
+    println!("---------------------------\n");
+
+    if !prompt_yes_no("Save this script?", false)? {
+        println!("Aborted, script was not created.");
+        return Ok(());
     }
 
     // Write file
