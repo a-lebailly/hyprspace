@@ -1,15 +1,14 @@
 # hyprspace
 
-A clean and powerful **workspace launcher & layout generator** for Hyprland. Hyprspace lets you organize your custom workspace environments as simple scripts, browse them in an intuitive terminal UI, and launch them instantly.
+A simple and efficient workspace launcher for Hyprland. Hyprspace lets you keep all your workspace layouts as small scripts, browse them through a minimal TUI, and launch them instantly.
 
-Instead of manually managing scattered shell scripts or rewriting layouts each time, **hyprspace** centralizes everything under one directory and provides:
+It provides:
+- A lightweight TUI to pick your workspace setups
+- A guided wizard to generate new layouts
+- Automatic detection of each script's workspace number
+- One‑command execution powered by hyprctl
 
-* A **TUI selector** for your workspace presets
-* An **interactive wizard** to create new layouts
-* Automatic detection of the workspace targeted by each script
-* One‑command launching of structured layouts powered by `hyprctl`
-
-Hyprspace is especially useful if you maintain several dashboards, productivity setups, or complex floating arrangements that you want to summon on demand.
+Perfect for quickly recalling dashboards, dev setups, or floating layouts without manually managing scripts.
 
 ---
 
