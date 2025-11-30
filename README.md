@@ -28,9 +28,7 @@ To install it system‑wide:
 sudo mv ./hyprspace /usr/local/bin/hyprspace
 ```
 
----
-
-## Build from source
+### Build from source
 
 **Requirements:**
 
@@ -70,6 +68,23 @@ Inside the interface:
 * Navigate with `↑/↓` or `j/k`
 * Press `Enter` to launch a workspace or create a new one
 * Press `q` or `Esc` to quit
+
+### Optional: Add a Hyprland keybinding
+
+You can add a shortcut to launch hyprspace directly from Hyprland (~/.config/hypr/hyprland.conf).  
+**Example**: launch hyprspace with `$mainMod + SHIFT + n` in a centered floating window.
+
+Add this to your Hyprland config:
+```
+bind = $mainMod SHIFT, n, exec, kitty --title hyprspace-selector hyprspace
+```
+
+To center and size the selector window:
+```
+windowrulev2 = float, title:^(hyprspace-selector)$
+windowrulev2 = center, title:^(hyprspace-selector)$
+windowrulev2 = size 15% 50%, title:^(hyprspace-selector)$
+```
 
 ---
 
